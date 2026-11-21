@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Settings · Memories{% endblock %}
+{% block content %}
+<div class="page">
+  <h1>Your memories</h1>
+  <div class="stats">
+    <div class="stat"><b>{{ stats.reels }}</b><span>Reels</span></div>
+    <div class="stat"><b>{{ stats.views }}</b><span>Total views</span></div>
+    <div class="stat"><b>{{ stats.likes }}</b><span>Likes</span></div>
+    <div class="stat"><b>{{ stats.storage_mb }} MB</b><span>Storage used</span></div>
+  </div>
+
+  <h1 style="font-size:18px">Manage</h1>
+  <div class="manage">
+    {% for r in reels %}
+    <div class="manage-item" id="m{{ r.id }}">
+      <video src="{{ url_for('static', filename='uploads/' ~ r.filename) }}#t=0.5" muted preload="metadata"></video>
+      <a class="info" href="{{ url_for('feed', start=r.id) }}">
+        <b>{{ r.title }}</b>
+        <span>{{ r.created_at.strftime('%d %b %Y') }} · {{ r.views }} views · {{ r.likes }} likes</span>
+      </a>
+      <button title="Delete" onclick="del({{ r.id }})">{{ icon('trash') }}</button>
+    </div>
+    {% else %}
+    <p style="color:var(--muted)">Nothing here yet.</p>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function del(id) {
+  if (!confirm('Delete this memory? This cannot be undone.')) return;
+  fetch(`/api/reels/${id}`, { method: 'DELETE' }).then(() => location.reload());
+}
+</script>
+{% endblock %}

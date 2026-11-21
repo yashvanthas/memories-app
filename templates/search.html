@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% from "_grid.html" import grid with context %}
+{% block title %}Search · Memories{% endblock %}
+{% block content %}
+<div class="page" style="padding-top:24px">
+  <form class="row" method="get" style="margin-bottom:20px;align-items:center">
+    <a class="icon-btn" href="{{ url_for('feed') }}" title="Back">{{ icon('back') }}</a>
+    <input type="search" name="q" value="{{ q }}" placeholder="Search title or #hashtag" autofocus>
+  </form>
+  {% if q %}
+    <p style="color:var(--muted);font-size:14px;margin-bottom:12px">{{ results|length }} result{{ '' if results|length == 1 else 's' }} for "{{ q }}"</p>
+    {% if results %}{{ grid(results) }}{% endif %}
+  {% else %}
+    <p style="color:var(--muted);text-align:center;margin-top:40px">Type a place, a friend's name or a #hashtag.</p>
+  {% endif %}
+</div>
+{% endblock %}

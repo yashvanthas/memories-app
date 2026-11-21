@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Upload · Memories{% endblock %}
+{% block content %}
+<div class="page">
+  <h1>New memory</h1>
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+
+  <form id="upForm" method="post" enctype="multipart/form-data">
+    <label class="drop" id="drop">
+      <input type="file" name="video" id="video" accept="video/*" hidden required>
+      <div id="dropHint">
+        <div class="big" style="margin:0 auto 8px">{{ icon('upload') }}</div>
+        <b style="color:var(--text)">Choose a video</b><br>
+        <small>MP4, WEBM, MOV · up to 200 MB · tap or drag here</small>
+      </div>
+      <video id="preview" muted playsinline loop hidden></video>
+    </label>
+
+    <div style="height:16px"></div>
+    <label class="field">Title
+      <input type="text" name="title" maxlength="120" placeholder="Manjguni 🤍" required>
+    </label>
+    <label class="field">Hashtags
+      <input type="text" name="hashtags" placeholder="#tripzz #sayeesh #editzz">
+    </label>
+
+    <button class="btn full" id="upBtn">{{ icon('upload') }} Save memory</button>
+    <div class="progress" id="prog"><div></div></div>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const input = document.getElementById('video'), drop = document.getElementById('drop');
+const preview = document.getElementById('preview'), hint = document.getElementById('dropHint');
+
+function showPreview(file) {
+  if (!file) return;
+  preview.src = URL.createObjectURL(file);
+  preview.hidden = false; hint.hidden = true;
+  preview.play().catch(() => {});
+}
+input.onchange = () => showPreview(input.files[0]);
+['dragover', 'dragenter'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.style.borderColor = 'var(--accent)'; }));
+drop.addEventListener('dragleave', () => drop.style.borderColor = '');
+drop.addEventListener('drop', e => {
+  e.preventDefault(); drop.style.borderColor = '';
+  if (e.dataTransfer.files[0]) { input.files = e.dataTransfer.files; showPreview(input.files[0]); }
+});
+
+// Upload with a progress bar
+document.getElementById('upForm').onsubmit = e => {
+  e.preventDefault();
+  const form = e.target, btn = document.getElementById('upBtn'), prog = document.getElementById('prog');
+  if (!input.files[0]) { toast('Choose a video first'); return; }
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', form.action || location.href);
+  xhr.upload.onprogress = ev => { if (ev.lengthComputable) prog.firstElementChild.style.width = (ev.loaded / ev.total * 100) + '%'; };
+  xhr.onload = () => {
+    if (xhr.responseURL && !xhr.responseURL.includes('/upload')) location.href = xhr.responseURL;
+    else { document.open(); document.write(xhr.responseText); document.close(); }
+  };
+  xhr.onerror = () => { toast('Upload failed'); btn.disabled = false; };
+  btn.disabled = true; btn.lastChild.textContent = ' Uploading…'; prog.style.display = 'block';
+  xhr.send(new FormData(form));
+};
+</script>
+{% endblock %}

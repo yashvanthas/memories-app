@@ -1,0 +1,11 @@
+{% from "icons.html" import icon %}
+{% macro grid(reels) %}
+<div class="grid">
+  {% for r in reels %}
+  <a class="thumb" href="{{ url_for('feed', start=r.id) }}">
+    <video src="{{ url_for('static', filename='uploads/' ~ r.filename) }}#t=0.5" muted playsinline preload="metadata"></video>
+    <div class="meta"><i>{{ icon('eye') }}</i>{{ r.views }}</div>
+  </a>
+  {% endfor %}
+</div>
+{% endmacro %}
