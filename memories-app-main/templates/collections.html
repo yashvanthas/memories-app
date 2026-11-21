@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% from "_grid.html" import grid with context %}
+{% block title %}Collections · Memories{% endblock %}
+{% block content %}
+<div class="page">
+  <h1>Collections</h1>
+  {% for tag, reels in groups.items() %}
+  <section class="group">
+    <div class="group-head">
+      <h2>#{{ tag }}</h2>
+      {% if tag != 'untagged' %}<a href="{{ url_for('feed', tag=tag) }}" style="color:var(--accent);font-size:13px">Play all · {{ reels|length }}</a>
+      {% else %}<span>{{ reels|length }}</span>{% endif %}
+    </div>
+    {{ grid(reels) }}
+  </section>
+  {% else %}
+  <div class="empty" style="height:60vh"><p>No collections yet.<br>Add hashtags when you upload, and they'll be grouped here.</p></div>
+  {% endfor %}
+</div>
+{% endblock %}

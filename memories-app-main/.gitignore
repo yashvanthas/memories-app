@@ -1,0 +1,8 @@
+venv/
+.venv/
+__pycache__/
+*.db
+static/uploads/*
+!static/uploads/.gitkeep
+.claude/
+.memories-secret

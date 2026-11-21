@@ -1,0 +1,50 @@
+{% from "icons.html" import icon %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <title>{% block title %}Memories{% endblock %}</title>
+  <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+  <link rel="icon" href="{{ url_for('static', filename='icons/icon.svg') }}" type="image/svg+xml">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="app">
+  {% block content %}{% endblock %}
+
+  <nav class="nav">
+    <a href="{{ url_for('home') }}" class="{{ 'active' if active == 'home' }}"><i>{{ icon('stack') }}</i><span>Home</span></a>
+    <a href="{{ url_for('feed') }}" class="{{ 'active' if active == 'feed' }}"><i>{{ icon('play') }}</i><span>Memories</span></a>
+    <a href="{{ url_for('collections') }}" class="{{ 'active' if active == 'collections' }}"><i>{{ icon('stack') }}</i><span>Collections</span></a>
+    <a href="{{ url_for('upload') }}" class="{{ 'active' if active == 'upload' }}"><i>{{ icon('plus') }}</i><span>Upload</span></a>
+    <a href="{{ url_for('settings') }}" class="{{ 'active' if active == 'settings' }}"><i>{{ icon('sliders') }}</i><span>Settings</span></a>
+  </nav>
+
+  <div class="toast" id="toast"></div>
+</div>
+<script>
+  const csrfToken = {{ csrf_token()|tojson }};
+  const originalFetch = window.fetch;
+  window.fetch = (url, options = {}) => {
+    const method = (options.method || 'GET').toUpperCase();
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+      if (options.headers instanceof Headers) {
+        options.headers.set('X-CSRFToken', csrfToken);
+      } else {
+        options.headers = { ...(options.headers || {}), 'X-CSRFToken': csrfToken };
+      }
+    }
+    return originalFetch(url, options);
+  };
+  function toast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 1800);
+  }
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

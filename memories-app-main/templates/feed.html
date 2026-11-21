@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+{% block content %}
+<header class="topbar">
+  <div class="views"><i>{{ icon('eye') }}</i><span id="viewCount">0</span></div>
+  <button class="icon-btn" onclick="location.reload()" title="Refresh">{{ icon('refresh') }}</button>
+  <div class="right"><a class="icon-btn" href="{{ url_for('search') }}" title="Search">{{ icon('search') }}</a></div>
+</header>
+
+{% if reels %}
+<main class="feed" id="feed">
+  {% for r in reels %}
+  <section class="reel" data-id="{{ r.id }}" data-views="{{ r.views }}" data-title="{{ r.title }}" data-tags="{{ r.hashtags }}">
+    <video src="{{ url_for('static', filename='uploads/' ~ r.filename) }}" playsinline loop muted preload="metadata"></video>
+    <div class="shade"></div>
+    <div class="paused">{{ icon('play') }}</div>
+
+    <div class="actions">
+      <button class="act like {{ 'liked' if r.liked }}" title="Like"><span class="ic">{{ icon('heart') }}</span><span class="n">{{ r.likes }}</span></button>
+      <button class="act cmt" title="Comments"><span class="ic">{{ icon('comment') }}</span><span class="n">{{ r.comments|length }}</span></button>
+      <button class="act emo" title="React"><span class="ic">{{ icon('smile') }}</span></button>
+      <button class="act shr" title="Share"><span class="ic">{{ icon('share') }}</span></button>
+      <button class="act more" title="More"><span class="ic">{{ icon('more') }}</span></button>
+    </div>
+
+    <div class="caption">
+      <h2>{{ r.title }}</h2>
+      <div class="date">{{ r.created_at.strftime('%d %b %Y') }}</div>
+      <div class="chips">
+        {% for t in r.tags %}<a class="chip" href="{{ url_for('feed', tag=t) }}">#{{ t }}</a>{% endfor %}
+      </div>
+    </div>
+  </section>
+  {% endfor %}
+</main>
+{% else %}
+<div class="empty">
+  <div class="big">{{ icon('play') }}</div>
+  {% if tag %}<p>No memories tagged <b>#{{ tag }}</b> yet.</p>
+  {% else %}<p>No memories yet.<br>Upload your first reel.</p>{% endif %}
+  <a class="btn" href="{{ url_for('upload') }}">{{ icon('upload')|safe }} Upload video</a>
+</div>
+{% endif %}
+
+<!-- Bottom sheet: comments / emoji / menu -->
+<div class="sheet-bg" id="sheetBg"></div>
+<div class="sheet" id="sheet">
+  <div class="grab"></div>
+  <h3 id="sheetTitle"></h3>
+  <div id="sheetBody"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const feed = document.getElementById('feed');
+const viewCount = document.getElementById('viewCount');
+const sheet = document.getElementById('sheet'), sheetBg = document.getElementById('sheetBg');
+const sheetTitle = document.getElementById('sheetTitle'), sheetBody = document.getElementById('sheetBody');
+const seen = new Set();
+let soundOn = false;
+const api = (url, opts = {}) => fetch(url, { headers: { 'Content-Type': 'application/json' }, ...opts }).then(r => r.json());
+const esc = s => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/* ---------- Autoplay the visible reel, count a view once ---------- */
+if (feed) {
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      const reel = e.target, v = reel.querySelector('video');
+      if (e.isIntersecting) {
+        v.muted = !soundOn;
+        v.play().catch(() => {});
+        reel.classList.remove('is-paused');
+        viewCount.textContent = reel.dataset.views;
+        const id = reel.dataset.id;
+        if (!seen.has(id)) {
+          seen.add(id);
+          api(`/api/reels/${id}/view`, { method: 'POST' }).then(d => {
+            reel.dataset.views = d.views;
+            viewCount.textContent = d.views;
+          });
+        }
+      } else {
+        v.pause();
+      }
+    });
+  }, { root: feed, threshold: 0.6 });
+  feed.querySelectorAll('.reel').forEach(r => io.observe(r));
+}
+
+/* ---------- Tap = play/pause, double-tap = like ---------- */
+document.querySelectorAll('.reel').forEach(reel => {
+  const v = reel.querySelector('video');
+  let lastTap = 0, tapTimer, pressTimer;
+
+  v.addEventListener('click', e => {
+    if (!soundOn) { soundOn = true; document.querySelectorAll('video').forEach(x => x.muted = false); }
+    const now = Date.now();
+    if (now - lastTap < 280) {
+      clearTimeout(tapTimer);
+      burst(reel, e);
+      const btn = reel.querySelector('.like');
+      if (!btn.classList.contains('liked')) toggleLike(reel);
+    } else {
+      tapTimer = setTimeout(() => {
+        if (v.paused) { v.play(); reel.classList.remove('is-paused'); }
+        else { v.pause(); reel.classList.add('is-paused'); }
+      }, 280);
+    }
+    lastTap = now;
+  });
+
+  // long-press opens the menu
+  v.addEventListener('pointerdown', () => { pressTimer = setTimeout(() => openMenu(reel), 600); });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => v.addEventListener(ev, () => clearTimeout(pressTimer)));
+
+  reel.querySelector('.like').onclick = () => toggleLike(reel);
+  reel.querySelector('.cmt').onclick = () => openComments(reel);
+  reel.querySelector('.emo').onclick = () => openEmoji(reel);
+  reel.querySelector('.shr').onclick = () => share(reel);
+  reel.querySelector('.more').onclick = () => openMenu(reel);
+});
+
+function burst(reel, e) {
+  const h = document.createElement('div');
+  h.className = 'heart-burst';
+  h.innerHTML = reel.querySelector('.like .ic').innerHTML;
+  const rect = reel.getBoundingClientRect();
+  h.style.left = (e.clientX - rect.left - 55) + 'px';
+  h.style.top = (e.clientY - rect.top - 55) + 'px';
+  reel.appendChild(h);
+  setTimeout(() => h.remove(), 800);
+}
+
+function toggleLike(reel) {
+  const btn = reel.querySelector('.like');
+  api(`/api/reels/${reel.dataset.id}/like`, { method: 'POST' }).then(d => {
+    btn.classList.toggle('liked', d.liked);
+    btn.querySelector('.n').textContent = d.likes;
+    btn.querySelector('.ic').classList.remove('pop'); void btn.offsetWidth;
+    btn.querySelector('.ic').classList.add('pop');
+  });
+}
+
+/* ---------- Bottom sheet ---------- */
+function openSheet(title, html) {
+  sheetTitle.textContent = title;
+  sheetBody.innerHTML = html;
+  sheet.classList.add('open'); sheetBg.classList.add('open');
+}
+function closeSheet() { sheet.classList.remove('open'); sheetBg.classList.remove('open'); }
+sheetBg.onclick = closeSheet;
+
+function renderComments(list) {
+  return list.length
+    ? list.map(c => `<div class="comment">${esc(c.text)}<small>${c.time}</small></div>`).join('')
+    : '<p style="color:var(--muted);text-align:center">No comments yet. Add a note about this memory.</p>';
+}
+
+function openComments(reel) {
+  const id = reel.dataset.id;
+  openSheet('Comments', `<div class="list" id="cList">Loading…</div>
+    <form class="row" id="cForm"><input type="text" id="cText" placeholder="Add a comment…" autocomplete="off" maxlength="500"><button class="btn">Post</button></form>`);
+  api(`/api/reels/${id}/comments`).then(list => document.getElementById('cList').innerHTML = renderComments(list));
+  document.getElementById('cForm').onsubmit = e => {
+    e.preventDefault();
+    const input = document.getElementById('cText'), text = input.value.trim();
+    if (!text) return;
+    postComment(reel, text).then(list => {
+      input.value = '';
+      const box = document.getElementById('cList');
+      box.innerHTML = renderComments(list); box.scrollTop = box.scrollHeight;
+    });
+  };
+}
+
+function postComment(reel, text) {
+  return api(`/api/reels/${reel.dataset.id}/comments`, { method: 'POST', body: JSON.stringify({ text }) }).then(list => {
+    reel.querySelector('.cmt .n').textContent = list.length;
+    return list;
+  });
+}
+
+function openEmoji(reel) {
+  const emojis = ['❤️', '😍', '😂', '🔥', '🥹', '😮', '👏', '🌄', '✈️', '🎉'];
+  openSheet('React', `<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px">${emojis.map(e =>
+    `<button class="emoji-pick" style="font-size:30px;padding:10px;border-radius:12px;background:#17151f">${e}</button>`).join('')}</div>`);
+  sheetBody.querySelectorAll('.emoji-pick').forEach(b => b.onclick = () => {
+    postComment(reel, b.textContent).then(() => { closeSheet(); toast(`Reacted ${b.textContent}`); });
+  });
+}
+
+function share(reel) {
+  const url = `${location.origin}/memories?start=${reel.dataset.id}`;
+  if (navigator.share) navigator.share({ title: reel.dataset.title, url }).catch(() => {});
+  else navigator.clipboard.writeText(url).then(() => toast('Link copied'), () => toast(url));
+}
+
+function openMenu(reel) {
+  openSheet(reel.dataset.title, `
+    <button class="menu-btn" id="mEdit">✏️  Edit title & hashtags</button>
+    <button class="menu-btn danger" id="mDel">🗑️  Delete memory</button>
+    <button class="menu-btn" onclick="closeSheet()">Cancel</button>`);
+  document.getElementById('mEdit').onclick = () => openEdit(reel);
+  document.getElementById('mDel').onclick = () => {
+    if (!confirm('Delete this memory? This cannot be undone.')) return;
+    fetch(`/api/reels/${reel.dataset.id}`, { method: 'DELETE' }).then(() => { closeSheet(); reel.remove(); toast('Deleted');
+      if (!document.querySelector('.reel')) location.reload(); });
+  };
+}
+
+function openEdit(reel) {
+  const tags = reel.dataset.tags.split(' ').filter(Boolean).map(t => '#' + t).join(' ');
+  openSheet('Edit memory', `
+    <label class="field">Title<input type="text" id="eTitle" maxlength="120" value="${esc(reel.dataset.title)}"></label>
+    <label class="field">Hashtags<input type="text" id="eTags" value="${esc(tags)}" placeholder="#trip #friends"></label>
+    <button class="btn full" id="eSave">Save</button>`);
+  document.getElementById('eSave').onclick = () => {
+    api(`/api/reels/${reel.dataset.id}/edit`, { method: 'POST',
+      body: JSON.stringify({ title: document.getElementById('eTitle').value, hashtags: document.getElementById('eTags').value }) })
+      .then(() => location.reload());
+  };
+}
+</script>
+{% endblock %}

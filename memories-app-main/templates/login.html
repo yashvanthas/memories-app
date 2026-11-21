@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Login · Memories</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <main class="auth-shell">
+    <section class="auth-card">
+      <div class="auth-mark" aria-label="Memories">
+        <svg viewBox="0 0 48 24" aria-hidden="true">
+          <path d="M6 12c4.5-7 9.5-7 14 0s9.5 7 14 0c2.3-3.6 5-5 8-4"/>
+          <path d="M42 8l-0.5 4.5-4-2"/>
+        </svg>
+      </div>
+      <h1>Sign in to Memories</h1>
+      <p class="auth-copy">Your moments, saved in one beautiful place.</p>
+      {% if error %}<div class="error">{{ error }}</div>{% endif %}
+      <form method="post" class="auth-form">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <label class="field">Email address
+          <input type="email" name="email" value="{{ email }}" placeholder="you@example.com" autocomplete="email" required>
+        </label>
+        <label class="field password-field">Password
+          <div class="password-wrap">
+            <input id="loginPassword" type="password" name="password" placeholder="Enter your password" autocomplete="current-password" required>
+            <button type="button" id="togglePassword" aria-label="Show password">Show</button>
+          </div>
+        </label>
+        <button class="btn full sign-in" type="submit">
+          <span>Sign in</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </button>
+      </form>
+    </section>
+  </main>
+  <script>
+    const password = document.getElementById('loginPassword');
+    const toggle = document.getElementById('togglePassword');
+    toggle.addEventListener('click', () => {
+      const show = password.type === 'password';
+      password.type = show ? 'text' : 'password';
+      toggle.textContent = show ? 'Hide' : 'Show';
+      toggle.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+    });
+  </script>
+</body>
+</html>

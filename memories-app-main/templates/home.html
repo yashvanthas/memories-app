@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% from "_grid.html" import grid with context %}
+{% block title %}Home · Memories{% endblock %}
+{% block content %}
+<div class="page home-page">
+  <div class="home-heading">
+    <div>
+      <p class="auth-kicker">YOUR MEMORIES</p>
+      <h1>Welcome{% if user %}, {{ user.name }}{% endif %}</h1>
+    </div>
+    <form method="post" action="{{ url_for('logout') }}">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <button class="logout-btn" type="submit">Log out</button>
+    </form>
+  </div>
+
+  <div class="home-hero">
+    <div>
+      <span>Stories waiting to be revisited</span>
+      <strong>{{ stats.reels }} memory{{ '' if stats.reels == 1 else 'ies' }}</strong>
+    </div>
+    <a class="hero-link" href="{{ url_for('feed') }}">Open feed</a>
+  </div>
+
+  <div class="stats home-stats">
+    <div class="stat"><b>{{ stats.views }}</b><span>Views</span></div>
+    <div class="stat"><b>{{ stats.likes }}</b><span>Likes</span></div>
+  </div>
+
+  <div class="group-head">
+    <h2>Recent memories</h2>
+    <a href="{{ url_for('collections') }}" style="color:var(--muted);font-size:13px">View all</a>
+  </div>
+  {% if reels %}
+    {{ grid(reels) }}
+  {% else %}
+    <div class="home-empty">
+      <p>No memories yet.</p>
+      <a class="btn" href="{{ url_for('upload') }}">Add your first memory</a>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
